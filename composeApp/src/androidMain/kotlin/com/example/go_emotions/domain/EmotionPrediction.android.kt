@@ -18,7 +18,7 @@ import kotlin.math.exp
 private const val PADDING_ID = 1 // Use the correct ID for padding, usually 1 for RoBERTa
 private const val CLS_ID: Long = 0 // RoBERTa's <s> (BOS) token ID
 private const val SEP_ID: Long = 2 // RoBERTa's </s> (EOS) token ID
-private const val MODEL_FIXED_LENGTH = 512
+private const val MODEL_FIXED_LENGTH = 512 // Must match the fixed length of your TFLite model
 
 private val EMOTION_LABELS = mapOf(
     0 to "admiration", 1 to "amusement", 2 to "anger", 3 to "annoyance", 4 to "approval", 5 to "caring", 6 to "confusion",
@@ -92,16 +92,16 @@ actual class EmotionPrediction {
             val pt_model_path = assetFilePath(context, modelName)
             val json_tokenizer_path = assetFilePath(context, tokenizerName)
 
-            // 4. Tokenize the Input Text
+            // 3. Tokenize the Input Text
             val tokenizationResult = tokenizerUtil(
                 text = text,
                 jsonTokenizerPath = json_tokenizer_path
             )
 
-            // 5. Load the PyTorch Model
+            // 4. Load the PyTorch Model
             val pt_model = Module.load(pt_model_path)
 
-            // 6. Create Tensors from the tokenized data
+            // 5. Create Tensors from the tokenized data
             // --- Input 0: input_ids ---
             val inputIdsTensor = Tensor.fromBlob(tokenizationResult.inputIds, longArrayOf(1, 512))
 
@@ -127,26 +127,26 @@ actual class EmotionPrediction {
             // If that doesn't exist, use .getDataAsFloatArray() or similar.
             val logitsArray: FloatArray = logitsTensor.dataAsFloatArray
 
-            // 11. Post-Process (Softmax and Argmax)
-
-            // Apply Softmax manually to get probabilities (optional, but good for confidence)
+            // 11. Apply Softmax manually to get probabilities (optional, but good for confidence)
             val expLogits = logitsArray.map { exp(it) }.toFloatArray()
             val sumExpLogits = expLogits.sum()
+
+            // 12. Calculate probabilities
             val probabilities = expLogits.map { it / sumExpLogits }.toFloatArray()
 
-            // 12. Create a list of pairs (Index, Probability)
+            // 13. Create a list of pairs (Index, Probability)
             val indexedProbabilities = probabilities.mapIndexed { index, probability ->
                 Pair(index, probability)
             }
 
-            // 13. Sort the list in descending order based on probability
+            // 14. Sort the list in descending order based on probability
             val sortedProbabilities = indexedProbabilities.sortedByDescending { it.second }
 
-            // 14. Get the Top 2 Results
+            // 15. Get the Top 2 Results
             val top1Result = sortedProbabilities.getOrNull(0) // Safe access for the first element
             val top2Result = sortedProbabilities.getOrNull(1) // Safe access for the second element
 
-            // 15. --- Output Formatting ---
+            // 16. --- Output Formatting ---
             val topEmotions = mutableListOf<String>()
 
             // Top 1 Emotion

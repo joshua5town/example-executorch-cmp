@@ -18,7 +18,7 @@ class PredictionServiceIOS: ComposeApp.PredictionService {
     static let PADDING_ID: Int64 = 1 // Use the correct ID for padding, usually 1 for RoBERTa
     static let CLS_ID: Int64 = 0 // RoBERTa's <s> (BOS) token ID
     static let SEP_ID: Int64 = 2 // RoBERTa's </s> (EOS) token ID
-    static let MODEL_FIXED_LENGTH = 512
+    static let MODEL_FIXED_LENGTH = 512 // Must match the fixed length of your TFLite model
 
     let EMOTION_LABELS: [Int: String] = [
         0: "admiration", 1: "amusement", 2: "anger", 3: "annoyance", 4: "approval", 5: "caring", 6: "confusion",
@@ -53,21 +53,27 @@ class PredictionServiceIOS: ComposeApp.PredictionService {
     func predict(text: String) async throws -> String {
         
         // 1. DEFINE THE EXPECTED FILE NAMES
+        let modelName = "go_emotions_coreml"
+        let tokenizerName = "tokenizer"
 
-        guard let ptModelPath = Bundle.main.path(forResource: "go_emotions_coreml", ofType: "pte") else {
-            throw MyInferenceError.fileNotFound("go_emotions_xnnpack.pte not found in App Bundle. Check 'Copy Bundle Resources' build phase.")
+        // 2. LOCATE BUNDLE RESOURCES
+        guard let ptModelPath = Bundle.main.path(forResource: modelName, ofType: "pte") else {
+            throw MyInferenceError.fileNotFound("go_emotions_coreml.pte not found in App Bundle. Check 'Copy Bundle Resources' build phase.")
         }
 
-        guard let jsonTokenizerPath = Bundle.main.path(forResource: "tokenizer", ofType: "json") else {
+        guard let jsonTokenizerPath = Bundle.main.path(forResource: tokenizerName, ofType: "json") else {
             throw MyInferenceError.fileNotFound("tokenizer.json not found in App Bundle. Check 'Copy Bundle Resources' build phase.")
         }
         
         do {
-            // 2. Tokenize the Input Text
+            // 3. Tokenize the Input Text
             let tokenizationResult = tokenizerUtil(text: text, jsonTokenizerPath: jsonTokenizerPath)
-            
+
+            // 4. Load the PyTorch Model
             let pt_model = Module(filePath: ptModelPath)
-            
+            try pt_model.load()
+
+            // 5. Create Tensors from the tokenized data
             // --- Input 0: input_ids ---
             let inputIdsTensor = Tensor<Int64>(tokenizationResult.inputIds, shape: [1, PredictionServiceIOS.MODEL_FIXED_LENGTH])
 
@@ -76,67 +82,51 @@ class PredictionServiceIOS: ComposeApp.PredictionService {
             // For a fully padded example (all 512 tokens are real), it would be all 1s.
             let attentionMaskTensor = Tensor<Int64>(tokenizationResult.attentionMask, shape: [1, PredictionServiceIOS.MODEL_FIXED_LENGTH])
 
-            // --- Corrected Forward Call ---
-            // 3. Pass both tensors as separate EValue arguments
-            
-            try pt_model.load()
-            
+            // 6. Pass both tensors as separate EValue arguments
             let outputs = try pt_model.forward([inputIdsTensor, attentionMaskTensor])
 
-            print("Inference successful.")
-
-            // 4. Convert the Tensor data to a Int64 array (logits are typically Int64)
+            // 7. Convert the Tensor data to a Int64 array (logits are typically Int64)
             let logitsTensor = try Tensor<Float>(outputs[0].asValue())
 
-            print("scalars successful.")
-            
+            // 8. Extract Raw Logits
+            // Convert the output tensor back to a standard Swift array of Float values.
             let logits = logitsTensor.scalars()
-            
 
-            // 5. Post-Processing (Softmax and Sorting)
-
-            // Softmax: Calculate exp(logit)
+            // 9. Softmax: Calculate exp(logit)
             let expLogits = logits.map { exp(Double($0)) }
             let sumExpLogits = expLogits.reduce(0, +)
-
-            print("Softmax successful.")
             
-            // Calculate probabilities
+            // 10. Calculate probabilities
             let probabilities = expLogits.map { $0 / sumExpLogits }
 
-            print("Probabilities successful.")
-
-            // Map to (index, probability) tuples
+            // 11. Create a list of pairs (Index, Probability)
             let indexedProbabilities: [(index: Int, probability: Double)] = probabilities.enumerated().map { (index, probability) in
                 (index: index, probability: probability)
             }
-
-            print("Indexed probabilities successful.")
             
-            // Sort descending
+            // 12. Sort the list in descending order based on probability
             let sortedProbabilities = indexedProbabilities.sorted { $0.probability > $1.probability }
 
-            print("Sorted probabilities successful.")
-
-            // 6. Get Top 2 Results and Format Output
+            // 13. Get the Top 2 Results
             let top1Result = sortedProbabilities.getOrNil(0) // Safe access using the new extension
             let top2Result = sortedProbabilities.getOrNil(1)
 
-            print("Formatted output successful.")
-
+            // 14. --- Output Formatting ---
             var topEmotions = [String]()
 
-            // Helper function to format the output string
+            // 15. Helper function to format the output string
             let formatResult: ((index: Int, probability: Double)) -> String = { result in
                 let emotion = self.EMOTION_LABELS[result.index] ?? "Unknown"
                 let confidence = String(format: "%.2f", result.probability * 100)
                 return "\(emotion) (Confidence: \(confidence)%)"
             }
 
+            // Top 1 Emotion
             if let top1 = top1Result {
                 topEmotions.append("1st: \(formatResult(top1))")
             }
 
+            // Top 2 Emotion
             if let top2 = top2Result {
                 topEmotions.append("2nd: \(formatResult(top2))")
             }
@@ -148,7 +138,9 @@ class PredictionServiceIOS: ComposeApp.PredictionService {
             return "Error"
         }
     }
-    
+
+    // --- SIMPLIFIED TOKENIZATION ---
+    // This handles basic spacing and the 'Ġ' prefix but skips subword splitting.
     private func simpleRobertaTokenize(text: String, vocab: [String: Int64]) -> [Int64] {
         var tokens = [Int64]()
         let words = text.split(separator: " ")
@@ -172,18 +164,31 @@ class PredictionServiceIOS: ComposeApp.PredictionService {
     
     private func padAndTruncate(_ tokenIds: [Int64]) -> TokenizationResult {
         // 1. Create arrays of exactly MODEL_FIXED_LENGTH length
+        // Initialize inputIds with the PADDING_ID (usually 1)
         var paddedIds = [Int64](repeating: Self.PADDING_ID, count: Int(Self.MODEL_FIXED_LENGTH))
+
+        // Initialize attentionMask with 0 (indicating padding)
         var attentionMask = [Int64](repeating: 0, count: Int(Self.MODEL_FIXED_LENGTH))
+
+        // 2. Calculate how many tokens to actually copy (truncate if too long)
         let copyLength = min(tokenIds.count, Int(Self.MODEL_FIXED_LENGTH))
+
+        // 3. Fill in the actual data
         for i in 0..<copyLength {
             paddedIds[i] = tokenIds[i]
             attentionMask[i] = 1
         }
+
+        // The rest of the array indices (from copyLength to 511) remain as initialized:
+        // paddedIds -> PADDING_ID
+        // attentionMask -> 0L
         return TokenizationResult(inputIds: paddedIds, attentionMask: attentionMask)
     }
     
     private func tokenizerUtil(text: String, jsonTokenizerPath: String) -> TokenizationResult {
         let fileManager = FileManager.default
+
+        // 1. Load and Parse the Vocabulary JSON from the file system
         if !fileManager.fileExists(atPath: jsonTokenizerPath) {
             print("Error: Tokenizer JSON file not found at path: \(jsonTokenizerPath)")
             let dummyArray = [Int64](repeating: 0, count: Int(Self.MODEL_FIXED_LENGTH))
@@ -193,7 +198,10 @@ class PredictionServiceIOS: ComposeApp.PredictionService {
             let data = try Data(contentsOf: URL(fileURLWithPath: jsonTokenizerPath))
             let jsonRoot = try JSONSerialization.jsonObject(with: data, options: [])
             var vocabMap: [String: Int64] = [:]
+            // A. Parse the root as a generic JsonObject first
             if let rootObj = jsonRoot as? [String: Any],
+
+               // B. Check for the standard Hugging Face structure: root -> "model" -> "vocab"
                let modelObj = rootObj["model"] as? [String: Any],
                let vocabObj = modelObj["vocab"] as? [String: Any] {
                 for (key, value) in vocabObj {
@@ -222,7 +230,6 @@ class PredictionServiceIOS: ComposeApp.PredictionService {
 
             // 3. Add Special Tokens [CLS] ... [SEP]
             var specialTokensList = [Int64]()
-            
             specialTokensList.append(Self.CLS_ID)
             specialTokensList.append(contentsOf: rawTokenIds)
             specialTokensList.append(Self.SEP_ID)

@@ -23,7 +23,6 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.example.go_emotions.di.MainScreenEvent
 import org.jetbrains.compose.ui.tooling.preview.Preview
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -65,11 +64,19 @@ fun App() {
                     label = { Text(text = "How are you feeling today?") },
                     value = input.value,
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                    singleLine = true,
-                    maxLines = 5,
+                    singleLine = false, // Changed to false so text wraps                    maxLines = 5,
                     enabled = !state.showProgressionBar,
                     onValueChange = {
-                        input.value = it
+                        if (it.length <= 512) {
+                            input.value = it
+                        }
+                    },
+                    supportingText = {
+                        Text(
+                            text = "${input.value.length} / 512",
+                            modifier = Modifier.fillMaxWidth(),
+                            textAlign = TextAlign.End
+                        )
                     },
                     modifier = Modifier
                         .fillMaxWidth()

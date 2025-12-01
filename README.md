@@ -1,17 +1,20 @@
-# Compose multiplatform IOS and Android Implementation of using Executorch
+# Compose multiplatform Demo Project
+## Executorch Implementation for IOS and Android
 
 * Repo is Composed by Joshua Townsend
 * Email: joshdadevelopa@gmail.com
 
 ## App Requirements TODO LIST
 
-* `Add local preferecnces`
 * `Add Demo video`
 * `Add Python Script`
 
 ## Current Developing Stack
 
-* `Compose Multiplatform(Kotlin)`
+* `Compose Multiplatform(Kotlin UI framework)`
 * `Swift & Jetpack Compose(UI Frameworks)`
 * `Github(Versioning)`
 * `Executorch(Inference Engine)`
+
+## Hugging Face Model Name
+* `SamLowe/roberta-base-go_emotions`

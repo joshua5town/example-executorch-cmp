@@ -4,7 +4,7 @@ import kotlinx.cinterop.ExperimentalForeignApi
 import org.koin.mp.KoinPlatform
 
 /**
- * Will
+ * Will bridge kotlin to swift using koin
  */
 interface PredictionService {
     suspend fun predict(text: String): String

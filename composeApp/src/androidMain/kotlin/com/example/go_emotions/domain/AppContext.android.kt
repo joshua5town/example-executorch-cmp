@@ -3,6 +3,9 @@ package com.example.go_emotions.domain
 import android.app.Application
 import android.content.Context
 
+/**
+ *  Application context for android
+ */
 actual object AppContext {
     private lateinit var application: Application
 

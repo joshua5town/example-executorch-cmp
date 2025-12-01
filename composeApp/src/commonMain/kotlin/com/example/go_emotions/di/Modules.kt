@@ -10,6 +10,6 @@ expect val platformModule: Module
 
 fun sharedModule() = platformModule + module {
     includes(platformModule)
-    single { EmotionPrediction() }
+    factory { EmotionPrediction() }
     viewModelOf(::MainViewModel)
 }
