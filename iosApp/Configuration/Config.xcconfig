@@ -1,0 +1,18 @@
+TEAM_ID=
+
+PRODUCT_NAME=Go_emotions
+PRODUCT_BUNDLE_IDENTIFIER=com.example.go_emotions.Go_emotions$(TEAM_ID)
+
+CURRENT_PROJECT_VERSION=1
+MARKETING_VERSION=1.0
+
+ET_PLATFORM[sdk=iphonesimulator*] = simulator
+ET_PLATFORM[sdk=iphoneos*] = ios
+ET_PLATFORM[sdk=macos*] = macos
+
+OTHER_LDFLAGS = $(inherited) \
+    -force_load $(BUILT_PRODUCTS_DIR)/libbackend_coreml_$(ET_PLATFORM).a \
+    -force_load $(BUILT_PRODUCTS_DIR)/libbackend_mps_$(ET_PLATFORM).a \
+    -force_load $(BUILT_PRODUCTS_DIR)/libbackend_xnnpack_$(ET_PLATFORM).a \
+    -force_load $(BUILT_PRODUCTS_DIR)/libkernels_optimized_$(ET_PLATFORM).a \
+    -force_load $(BUILT_PRODUCTS_DIR)/libkernels_quantized_$(ET_PLATFORM).a
