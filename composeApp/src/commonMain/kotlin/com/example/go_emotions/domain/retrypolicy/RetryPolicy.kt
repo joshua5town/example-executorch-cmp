@@ -4,6 +4,9 @@ import kotlinx.coroutines.delay
 import kotlin.ranges.coerceAtMost
 import kotlin.time.Duration.Companion.seconds
 
+/**
+ * Retry policy for suspend functions.
+ */
 class RetryPolicy(
     private val maxRetries: Int = 3,
     private val initialDelay: Long = 5,

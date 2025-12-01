@@ -3,11 +3,7 @@ package com.example.go_emotions
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.go_emotions.domain.EmotionPrediction
-import com.example.go_emotions.di.MainScreenEvent
-import com.example.go_emotions.domain.DatabaseService
-import com.example.go_emotions.domain.errorhandling.Result
 import com.example.go_emotions.domain.retrypolicy.RetryPolicy
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -15,9 +11,11 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+/**
+ * Main screen view model
+ */
 class MainViewModel(
-    private val emotionPrediction: EmotionPrediction,
-    private val databaseService: DatabaseService
+    private val emotionPrediction: EmotionPrediction
 ): ViewModel() {
 
     private val retryPolicy = RetryPolicy(
@@ -71,48 +69,6 @@ class MainViewModel(
                                 showProgressionBar = false
                             )
                         }
-                    }
-                }
-            }
-            MainScreenEvent.DownloadModels -> {
-                viewModelScope.launch {
-                    try {
-                        val result = retryPolicy.retry(
-                            block = {
-                                val result = databaseService.getModel()
-
-                                if(result is Result.Error){
-                                    throw CancellationException("Error getting model")
-                                }
-                            },
-                            retryIf = { e ->
-                                e is CancellationException || e is IllegalStateException
-                            }
-                        )
-
-                    }catch (e: Exception){
-                        throw CancellationException("Error getting model")
-                    }
-                }
-            }
-            MainScreenEvent.DownloadTokenizer -> {
-                viewModelScope.launch {
-                    try {
-                        val result = retryPolicy.retry(
-                            block = {
-                                val result = databaseService.getTokenizer()
-
-                                if(result is Result.Error){
-                                    throw CancellationException("Error getting tokenizer")
-                                }
-                            },
-                            retryIf = { e ->
-                                e is CancellationException || e is IllegalStateException
-                            }
-                        )
-
-                    }catch (e: Exception){
-                        throw CancellationException("Error getting tokenizer")
                     }
                 }
             }

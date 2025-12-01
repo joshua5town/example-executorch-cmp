@@ -54,6 +54,9 @@ data class TokenizationResult(
 
 actual class EmotionPrediction {
 
+    /**
+     * Copies a file from the assets folder to the cache directory.
+     */
     private fun assetFilePath(context: Context, assetName: String): String {
         val file = File(context.cacheDir, assetName)
         if (file.exists() && file.length() > 0) {
@@ -95,7 +98,10 @@ actual class EmotionPrediction {
                 jsonTokenizerPath = json_tokenizer_path
             )
 
+            // 5. Load the PyTorch Model
             val pt_model = Module.load(pt_model_path)
+
+            // 6. Create Tensors from the tokenized data
             // --- Input 0: input_ids ---
             val inputIdsTensor = Tensor.fromBlob(tokenizationResult.inputIds, longArrayOf(1, 512))
 
@@ -104,45 +110,43 @@ actual class EmotionPrediction {
             // For a fully padded example (all 512 tokens are real), it would be all 1s.
             val attentionMaskTensor = Tensor.fromBlob(tokenizationResult.attentionMask, longArrayOf(1, 512))
 
-            // --- Corrected Forward Call ---
-            // Pass both tensors as separate EValue arguments
-
+            // 7. Pass both tensors as separate EValue arguments
             val outputs = pt_model.forward(
                 EValue.from(inputIdsTensor),  // This is Input 0
                 EValue.from(attentionMaskTensor) // This is Input 1 (The fix!)
             )
 
-            // 1. Extract the main output EValue (usually the first element)
+            // 8. Extract the main output EValue (usually the first element)
             val logitsEValue = outputs[0]
 
-            // 2. Convert the EValue to a Tensor
+            // 9. Convert the EValue to a Tensor
             val logitsTensor: Tensor = logitsEValue.toTensor()
 
-            // 3. Convert the Tensor data to a float array (logits are typically float32)
+            // 10. Convert the Tensor data to a float array (logits are typically float32)
             // NOTE: .toFloatArray() is a common helper method in mobile runtimes.
             // If that doesn't exist, use .getDataAsFloatArray() or similar.
             val logitsArray: FloatArray = logitsTensor.dataAsFloatArray
 
-            // 4. Post-Process (Softmax and Argmax)
+            // 11. Post-Process (Softmax and Argmax)
 
             // Apply Softmax manually to get probabilities (optional, but good for confidence)
             val expLogits = logitsArray.map { exp(it) }.toFloatArray()
             val sumExpLogits = expLogits.sum()
             val probabilities = expLogits.map { it / sumExpLogits }.toFloatArray()
 
-            // 4. Create a list of pairs (Index, Probability)
+            // 12. Create a list of pairs (Index, Probability)
             val indexedProbabilities = probabilities.mapIndexed { index, probability ->
                 Pair(index, probability)
             }
 
-            // 5. Sort the list in descending order based on probability
+            // 13. Sort the list in descending order based on probability
             val sortedProbabilities = indexedProbabilities.sortedByDescending { it.second }
 
-            // 6. Get the Top 2 Results
+            // 14. Get the Top 2 Results
             val top1Result = sortedProbabilities.getOrNull(0) // Safe access for the first element
             val top2Result = sortedProbabilities.getOrNull(1) // Safe access for the second element
 
-            // --- Output Formatting ---
+            // 15. --- Output Formatting ---
             val topEmotions = mutableListOf<String>()
 
             // Top 1 Emotion
@@ -171,7 +175,7 @@ actual class EmotionPrediction {
         }
     }
 
-    // --- SIMPLIFIED TOKENIZATION (FOR DEMO ONLY) ---
+    // --- SIMPLIFIED TOKENIZATION ---
     // This handles basic spacing and the 'Ġ' prefix but skips subword splitting.
     private fun simpleRobertaTokenize(text: String, vocabMap: Map<String, Long>): List<Long> {
         val tokens = mutableListOf<Long>()

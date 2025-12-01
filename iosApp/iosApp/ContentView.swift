@@ -5,8 +5,7 @@ import ComposeApp
 struct ComposeView: UIViewControllerRepresentable {
     func makeUIViewController(context: Context) -> UIViewController {
         MainViewControllerKt.MainViewController(
-            predictionService: PredictionServiceIOS.shared,
-            databaseService: DatabaseServiceIOS.shared,
+            predictionService: PredictionServiceIOS.shared
         )
     }
 
