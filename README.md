@@ -7,6 +7,7 @@
 ## App Requirements TODO LIST
 
 * `Add Python Script`
+* `Add ML Model for summarization`
 
 ## Current Developing Stack
 
