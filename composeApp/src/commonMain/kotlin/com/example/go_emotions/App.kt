@@ -64,7 +64,7 @@ fun App() {
                     label = { Text(text = "How are you feeling today?") },
                     value = input.value,
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                    singleLine = false, // Changed to false so text wraps                    maxLines = 5,
+                    singleLine = false,
                     enabled = !state.showProgressionBar,
                     onValueChange = {
                         if (it.length <= 512) {

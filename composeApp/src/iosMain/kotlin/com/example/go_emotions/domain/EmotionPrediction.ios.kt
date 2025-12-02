@@ -1,6 +1,7 @@
 package com.example.go_emotions.domain
 
 import kotlinx.cinterop.ExperimentalForeignApi
+import org.koin.core.qualifier.named
 import org.koin.mp.KoinPlatform
 
 /**
@@ -12,16 +13,11 @@ interface PredictionService {
 
 actual class EmotionPrediction actual constructor()  {
 
-    private val service: PredictionService? by lazy {
-        try {
-            KoinPlatform.getKoin().get<PredictionService>()
-        } catch (e: Exception) {
-            println("PredictionService not found in Koin: ${e.message}")
-            null
-        }
+    private val nativeService: PredictionService by lazy {
+        KoinPlatform.getKoin().get(named("NativePredictionService"))
     }
     @OptIn(ExperimentalForeignApi::class)
     actual suspend fun predict(text: String): String? {
-        return service?.predict(text) ?: ""
+        return nativeService.predict(text)
     }
 }
