@@ -6,7 +6,6 @@
 
 ## App Requirements TODO LIST
 
-* `Add Demo video`
 * `Add Python Script`
 
 ## Current Developing Stack
